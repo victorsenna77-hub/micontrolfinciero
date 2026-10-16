@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finanzas Py - Control Financiero, Ahorros y CDA</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-indigo-700 via-indigo-800 to-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2.5 rounded-xl text-yellow-300 shadow-inner">
+                    <i class="fa-solid fa-wallet text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Finanzas Py</h1>
+                    <p class="text-xs text-indigo-200">Control de Gastos, Presupuesto y Proyección de CDA (Gs.)</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 flex-wrap justify-end">
+                <button onclick="exportData()" title="Respaldar datos" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl transition border border-indigo-400/30 flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-download"></i>
+                    <span class="hidden sm:inline">Exportar</span>
+                </button>
+                <label title="Restaurar datos" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl transition border border-indigo-400/30 flex items-center gap-1.5 shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-upload"></i>
+                    <span class="hidden sm:inline">Importar</span>
+                    <input type="file" id="import-file" accept=".json" onchange="importData(event)" class="hidden">
+                </label>
+                <button onclick="resetDataPrompt()" title="Reiniciar datos" class="text-xs bg-rose-600/80 hover:bg-rose-600 text-white px-3 py-2 rounded-xl transition border border-rose-400/30 flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span class="hidden sm:inline">Reiniciar</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Navigation Tabs -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2 flex space-x-2 border-t border-indigo-600/40 pt-2 text-xs font-semibold">
+            <button id="tab-dashboard-btn" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-t-xl bg-white text-indigo-900 transition flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie"></i> Gastos y Presupuestos
+            </button>
+            <button id="tab-investments-btn" onclick="switchTab('investments')" class="px-4 py-2 rounded-t-xl text-indigo-200 hover:text-white transition flex items-center gap-2">
+                <i class="fa-solid fa-piggy-bank"></i> Ahorros y CDAs
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full space-y-6">
+
+        <!-- ==================== TAB 1: DASHBOARD & TRANSACTIONS ==================== -->
+        <div id="tab-dashboard" class="space-y-6">
+
+            <!-- General Metrics Section -->
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Balance Net Card -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Flujo Neto Mensual</p>
+                            <h2 id="total-balance" class="text-2xl font-extrabold text-slate-900 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                            <i class="fa-solid fa-scale-balanced text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-500 flex items-center gap-1" id="balance-subtitle">
+                        <span>Ingresos vs Gastos</span>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600"></div>
+                </div>
+
+                <!-- Income Card -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ingresos Totales</p>
+                            <h2 id="total-income" class="text-2xl font-extrabold text-emerald-600 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                            <i class="fa-solid fa-arrow-trend-up text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-emerald-600 font-medium" id="income-count">0 Registros</div>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+                </div>
+
+                <!-- Expense Card -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Gastos Totales</p>
+                            <h2 id="total-expense" class="text-2xl font-extrabold text-rose-600 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                            <i class="fa-solid fa-arrow-trend-down text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-rose-600 font-medium" id="expense-count">0 Registros</div>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-rose-500"></div>
+                </div>
+
+                <!-- Patrimonio Total Card (Includes Savings & CDA) -->
+                <div class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-5 border border-slate-800 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Patrimonio Acumulado</p>
+                            <h2 id="total-networth" class="text-2xl font-extrabold text-yellow-400 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-white/10 text-yellow-300 rounded-xl">
+                            <i class="fa-solid fa-vault text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-[11px] text-slate-300">
+                        Ahorros + CDAs + Flujo Neto
+                    </div>
+                </div>
+            </section>
+
+            <!-- Budget Controls Section -->
+            <section class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">Control de Presupuestos Mensuales</h3>
+                        <p class="text-xs text-slate-500">Supervisa tus topes por categoría de gastos</p>
+                    </div>
+                    <button onclick="openBudgetModal()" class="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 self-start sm:self-auto border border-indigo-200">
+                        <i class="fa-solid fa-sliders"></i> Ajustar Presupuestos
+                    </button>
+                </div>
+                <div id="budgets-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Rendered dynamically -->
+                </div>
+            </section>
+
+            <!-- Interactive Form & Charts -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Form Column -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm lg:col-span-1">
+                    <h3 id="form-title" class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-plus text-indigo-600"></i>
+                        <span>Nueva Transacción</span>
+                    </h3>
+
+                    <form id="transaction-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-sm font-medium">
+                            <button type="button" id="type-expense-btn" onclick="setTransactionType('gasto')" class="py-2 rounded-lg text-center transition bg-white text-rose-600 shadow-sm font-semibold">Gasto</button>
+                            <button type="button" id="type-income-btn" onclick="setTransactionType('ingreso')" class="py-2 rounded-lg text-center transition text-slate-600 hover:text-slate-900">Ingreso</button>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Descripción</label>
+                            <input type="text" id="tx-desc" required placeholder="Ej. Supermercado Stock, ANDE, Salario" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50/50">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Monto (Gs.)</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-xs font-bold text-slate-400">Gs.</span>
+                                <input type="number" id="tx-amount" min="1" step="1" required placeholder="150000" class="w-full pl-11 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50/50 font-semibold">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Categoría</label>
+                            <select id="tx-category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50/50"></select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Fecha</label>
+                            <input type="date" id="tx-date" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50/50">
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-2">
+                            <button type="submit" id="submit-btn" class="flex-grow bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition text-sm shadow-sm shadow-indigo-200">
+                                Guardar Transacción
+                            </button>
+                            <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 px-3 rounded-xl transition text-sm">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Expense Charts Column -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm lg:col-span-2 flex flex-col justify-between space-y-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1">Distribución de Gastos</h3>
+                        <p class="text-xs text-slate-500">Visualiza exactamente en qué categorías estás gastando más</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="relative w-full h-64 flex items-center justify-center">
+                            <canvas id="expenseChart"></canvas>
+                        </div>
+                        <div class="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 space-y-3">
+                            <div class="flex items-center gap-2 text-indigo-900 font-bold text-sm">
+                                <i class="fa-solid fa-lightbulb text-amber-500 text-base"></i>
+                                <span>Tips para Gastos en Paraguay</span>
+                            </div>
+                            <ul class="text-xs text-slate-600 space-y-2 leading-relaxed">
+                                <li class="flex items-start gap-1.5">
+                                    <i class="fa-solid fa-check text-indigo-600 mt-0.5"></i>
+                                    <span><strong>Servicios Fijos:</strong> Agenda vencimientos de ANDE, ESSAP y telefonía para evitar multas.</span>
+                                </li>
+                                <li class="flex items-start gap-1.5">
+                                    <i class="fa-solid fa-check text-indigo-600 mt-0.5"></i>
+                                    <span><strong>Supermercado:</strong> Aprovecha los días de descuentos con tarjetas bancarias de plaza (20% a 30% reintegro).</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- History Section -->
+            <section class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">Historial de Movimientos</h3>
+                        <p class="text-xs text-slate-500">Filtra y revisa tus gastos e ingresos</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-xs"><i class="fa-solid fa-search"></i></span>
+                            <input type="text" id="search-input" oninput="renderTransactions()" placeholder="Buscar..." class="pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 w-full sm:w-48">
+                        </div>
+                        <select id="filter-type" onchange="renderTransactions()" class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-slate-50/50">
+                            <option value="all">Todos los tipos</option>
+                            <option value="ingreso">Ingresos</option>
+                            <option value="gasto">Gastos</option>
+                        </select>
+                        <select id="filter-category" onchange="renderTransactions()" class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-slate-50/50">
+                            <option value="all">Todas las categorías</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50/50">
+                                <th class="py-3 px-4 rounded-l-xl">Fecha</th>
+                                <th class="py-3 px-4">Descripción</th>
+                                <th class="py-3 px-4">Categoría</th>
+                                <th class="py-3 px-4">Tipo</th>
+                                <th class="py-3 px-4 text-right">Monto</th>
+                                <th class="py-3 px-4 rounded-r-xl text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+                <div id="empty-state" class="hidden py-12 text-center">
+                    <p class="text-xs text-slate-500">No se encontraron registros de movimiento.</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- ==================== TAB 2: AHORROS Y CDAs ==================== -->
+        <div id="tab-investments" class="space-y-6 hidden">
+
+            <!-- Savings & Investments KPi Cards -->
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Liquid Savings Card -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ahorro Disponible (Vista)</p>
+                            <h2 id="total-savings-liquid" class="text-2xl font-extrabold text-blue-600 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                            <i class="fa-solid fa-piggy-bank text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-500">Fondo de emergencia y caja de ahorro</div>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
+                </div>
+
+                <!-- Total Invested in CDA Card -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Capital en CDA (Plazo Fijo)</p>
+                            <h2 id="total-cda-capital" class="text-2xl font-extrabold text-indigo-700 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-indigo-50 text-indigo-700 rounded-xl">
+                            <i class="fa-solid fa-certificate text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-500">Bancos, Financieras o Cooperativas</div>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600"></div>
+                </div>
+
+                <!-- Projected Annual Interest -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Interés Anual Estimado</p>
+                            <h2 id="total-cda-interest-annual" class="text-2xl font-extrabold text-emerald-600 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                            <i class="fa-solid fa-coins text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-emerald-600 font-medium" id="cda-avg-tea">TEA Promedio: 0%</div>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+                </div>
+
+                <!-- Monthly Yield Card -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Retorno Mensual Estimado</p>
+                            <h2 id="total-cda-interest-monthly" class="text-2xl font-extrabold text-amber-600 mt-1">Gs. 0</h2>
+                        </div>
+                        <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                            <i class="fa-solid fa-hand-holding-dollar text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-500">Rendimiento pasivo mensual promedio</div>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
+                </div>
+            </section>
+
+            <!-- Goal & Parallel Yield Calculations Section -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Savings Goal Tracker -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm lg:col-span-1 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-bullseye text-indigo-600"></i> Meta de Ahorro
+                        </h3>
+                        <button onclick="editSavingsGoal()" class="text-xs text-indigo-600 hover:underline font-semibold">Editar Meta</button>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs text-slate-600 font-medium">
+                            <span>Acumulado Actual:</span>
+                            <strong id="goal-current-val" class="text-indigo-700">Gs. 0</strong>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-600 font-medium">
+                            <span>Meta Objetivo:</span>
+                            <strong id="goal-target-val" class="text-slate-800">Gs. 50.000.000</strong>
+                        </div>
+                        <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                            <div id="goal-progress-bar" class="bg-indigo-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <p id="goal-percentage-text" class="text-center text-xs font-bold text-indigo-600">0% Completado</p>
+                    </div>
+
+                    <!-- CDA Quick Simulator Widget -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+                        <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-calculator text-indigo-600"></i> Simulador Rápido de CDA
+                        </h4>
+                        <div class="space-y-2 text-xs">
+                            <div>
+                                <label class="block text-slate-500 text-[11px] mb-0.5">Monto A Invertir (Gs.)</label>
+                                <input type="number" id="sim-amount" value="10000000" step="500000" oninput="calculateSimulatedCDA()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-slate-500 text-[11px] mb-0.5">Tasa TEA %</label>
+                                    <input type="number" id="sim-tea" value="8.5" step="0.1" oninput="calculateSimulatedCDA()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-slate-500 text-[11px] mb-0.5">Plazo (Meses)</label>
+                                    <input type="number" id="sim-months" value="12" step="1" oninput="calculateSimulatedCDA()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold">
+                                </div>
+                            </div>
+                            <div class="p-2.5 bg-indigo-100/60 rounded-lg text-indigo-950 space-y-1 mt-2">
+                                <div class="flex justify-between font-semibold">
+                                    <span>Ganancia Total:</span>
+                                    <span id="sim-result-total" class="text-emerald-700 font-extrabold">Gs. 0</span>
+                                </div>
+                                <div class="flex justify-between text-[11px]">
+                                    <span>Promedio Mensual:</span>
+                                    <span id="sim-result-monthly" class="font-bold">Gs. 0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Investments Distribution Chart Column -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm lg:col-span-2 flex flex-col justify-between space-y-4">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">Estructura de Capital y Proyección</h3>
+                        <p class="text-xs text-slate-500">Distribución de tu dinero entre Disponibilidad Inmediata y CDAs a Plazo</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div class="relative w-full h-56 flex items-center justify-center">
+                            <canvas id="investmentsDoughnutChart"></canvas>
+                        </div>
+                        <div class="relative w-full h-56 flex items-center justify-center">
+                            <canvas id="investmentsGrowthChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Tables for Savings Accounts and CDAs -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- Simple Savings Accounts List -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800">Cajas de Ahorro y Disponibilidades</h3>
+                            <p class="text-xs text-slate-500">Cuentas bancarias vistas o fondos líquidos</p>
+                        </div>
+                        <button onclick="openSavingsAccountModal()" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-3 py-1.5 rounded-xl transition border border-blue-200 flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> Nueva Cuenta
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50/50">
+                                    <th class="py-2.5 px-3">Entidad / Nombre</th>
+                                    <th class="py-2.5 px-3">Tipo</th>
+                                    <th class="py-2.5 px-3 text-right">Saldo (Gs.)</th>
+                                    <th class="py-2.5 px-3 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="savings-table-body" class="divide-y divide-slate-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CDAs List -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800">Portafolio de CDAs (Plazo Fijo)</h3>
+                            <p class="text-xs text-slate-500">Inversiones con tasa de interés garantizada</p>
+                        </div>
+                        <button onclick="openCDAModal()" class="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold px-3 py-1.5 rounded-xl transition border border-indigo-200 flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> Nuevo CDA
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50/50">
+                                    <th class="py-2.5 px-3">Banco / Finan.</th>
+                                    <th class="py-2.5 px-3">Monto Invertido</th>
+                                    <th class="py-2.5 px-3">Tasa TEA</th>
+                                    <th class="py-2.5 px-3 text-right">Interés Anual</th>
+                                    <th class="py-2.5 px-3 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cda-table-body" class="divide-y divide-slate-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+    <!-- Modal: Adjust Budget -->
+    <div id="budget-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-600"></i> Configurar Presupuestos (Gs.)
+                </h3>
+                <button onclick="closeBudgetModal()" class="text-slate-400 hover:text-slate-600 text-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="modal-budgets-list" class="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1"></div>
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button onclick="closeBudgetModal()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+                <button onclick="saveBudgetsFromModal()" class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add/Edit Savings Account -->
+    <div id="savings-account-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-base">Nueva Cuenta de Ahorro</h3>
+                <button onclick="closeSavingsAccountModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="handleSavingsAccountSubmit(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Nombre / Entidad</label>
+                    <input type="text" id="acc-name" required placeholder="Ej. Banco Itaú / Sudameris / Basa" class="w-full px-3 py-2 rounded-xl border border-slate-300">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Tipo de Cuenta</label>
+                    <select id="acc-type" class="w-full px-3 py-2 rounded-xl border border-slate-300">
+                        <option value="Fondo de Emergencia">Fondo de Emergencia</option>
+                        <option value="Caja de Ahorro Vista">Caja de Ahorro Vista</option>
+                        <option value="Ahorro Programado">Ahorro Programado</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Saldo Actual (Gs.)</label>
+                    <input type="number" id="acc-balance" required step="1000" placeholder="5000000" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeSavingsAccountModal()" class="px-3 py-2 text-slate-600">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold">Guardar Cuenta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add CDA -->
+    <div id="cda-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-base">Registrar Nuevo CDA (Plazo Fijo)</h3>
+                <button onclick="closeCDAModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="handleCDASubmit(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Entidad Financiera / Banco</label>
+                    <input type="text" id="cda-bank" required placeholder="Ej. Banco Familiar / Visión / Sudameris" class="w-full px-3 py-2 rounded-xl border border-slate-300">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Monto Invertido en CDA (Gs.)</label>
+                    <input type="number" id="cda-amount" required step="100000" min="500000" placeholder="10000000" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Tasa TEA (%)</label>
+                        <input type="number" id="cda-tea" required step="0.1" min="1" max="25" placeholder="8.5" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Plazo (Meses)</label>
+                        <input type="number" id="cda-months" required step="1" min="1" max="120" placeholder="12" class="w-full px-3 py-2 rounded-xl border border-slate-300">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Pago de Intereses</label>
+                    <select id="cda-payout" class="w-full px-3 py-2 rounded-xl border border-slate-300">
+                        <option value="mensual">Liquidación Mensual</option>
+                        <option value="vencimiento">Al Vencimiento del Plazo</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeCDAModal()" class="px-3 py-2 text-slate-600">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold">Guardar CDA</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-medium">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toast-message">Operación realizada con éxito</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+            Control Financiero Personal &bull; Paraguay (Gs.) &bull; Compatible con Hosting Gratuito (GitHub Pages / Netlify / Vercel)
+        </div>
+    </footer>
+
+    <!-- JS Application Script -->
+    <script>
+        // Categories Definition
+        const categories = {
+            gasto: [
+                { id: 'supermercado', name: 'Supermercado (Stock, Superseis, Real)', icon: 'fa-cart-shopping' },
+                { id: 'servicios', name: 'Servicios Básicos (ANDE, ESSAP, Copaco)', icon: 'fa-bolt' },
+                { id: 'vivienda', name: 'Alquiler / Cuota Inmobiliaria', icon: 'fa-house' },
+                { id: 'transporte', name: 'Combustible / Transporte / Bolt', icon: 'fa-car' },
+                { id: 'alimentacion', name: 'Comida fuera / Delivery', icon: 'fa-utensils' },
+                { id: 'salud', name: 'Salud y Farmacia', icon: 'fa-pills' },
+                { id: 'educacion', name: 'Educación y Cursos', icon: 'fa-graduation-cap' },
+                { id: 'entretenimiento', name: 'Ocio y Suscripciones', icon: 'fa-film' },
+                { id: 'otros_gastos', name: 'Otros Gastos', icon: 'fa-receipt' }
+            ],
+            ingreso: [
+                { id: 'salario', name: 'Salario / Sueldo', icon: 'fa-briefcase' },
+                { id: 'freelance', name: 'Trabajos Independientes', icon: 'fa-laptop-code' },
+                { id: 'inversiones', name: 'Rentas / Intereses de CDA', icon: 'fa-chart-line' },
+                { id: 'otros_ingresos', name: 'Otros Ingresos', icon: 'fa-sack-dollar' }
+            ]
+        };
+
+        // Default Sample Data in Guaraníes
+        const defaultTransactions = [
+            { id: 'tx-1', type: 'ingreso', desc: 'Salario Mensual', amount: 5000000, category: 'salario', date: new Date().toISOString().split('T')[0] },
+            { id: 'tx-2', type: 'gasto', desc: 'Supermercado Quincenal', amount: 950000, category: 'supermercado', date: new Date().toISOString().split('T')[0] },
+            { id: 'tx-3', type: 'gasto', desc: 'Factura ANDE y ESSAP', amount: 320000, category: 'servicios', date: new Date().toISOString().split('T')[0] },
+            { id: 'tx-4', type: 'gasto', desc: 'Carga de Combustible', amount: 350000, category: 'transporte', date: new Date().toISOString().split('T')[0] }
+        ];
+
+        const defaultBudgets = {
+            supermercado: 1800000,
+            servicios: 500000,
+            vivienda: 2000000,
+            transporte: 700000,
+            alimentacion: 500000,
+            salud: 400000,
+            educacion: 500000,
+            entretenimiento: 400000,
+            otros_gastos: 300000
+        };
+
+        const defaultSavingsAccounts = [
+            { id: 'sav-1', name: 'Banco Itaú - Cta Vista', type: 'Caja de Ahorro Vista', balance: 3500000 },
+            { id: 'sav-2', name: 'Sudameris - Emergencias', type: 'Fondo de Emergencia', balance: 5000000 }
+        ];
+
+        const defaultCDAs = [
+            { id: 'cda-1', bank: 'Banco Familiar', amount: 20000000, tea: 8.5, months: 12, payout: 'mensual' },
+            { id: 'cda-2', bank: 'Financiera Ueno / Sudameris', amount: 15000000, tea: 9.0, months: 24, payout: 'vencimiento' }
+        ];
+
+        // State Variables
+        let transactions = JSON.parse(localStorage.getItem('fin_transactions')) || defaultTransactions;
+        let budgets = JSON.parse(localStorage.getItem('fin_budgets')) || defaultBudgets;
+        let savingsAccounts = JSON.parse(localStorage.getItem('fin_savings_acc')) || defaultSavingsAccounts;
+        let cdas = JSON.parse(localStorage.getItem('fin_cdas')) || defaultCDAs;
+        let savingsGoal = parseFloat(localStorage.getItem('fin_savings_goal')) || 50000000;
+
+        let currentType = 'gasto';
+        let editingId = null;
+        let expenseChartInstance = null;
+        let investmentsDoughnutChartInstance = null;
+        let investmentsGrowthChartInstance = null;
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('tx-date').valueAsDate = new Date();
+            updateCategoryDropdown();
+            populateCategoryFilter();
+            calculateSimulatedCDA();
+            renderAll();
+        });
+
+        // Tab Switching
+        function switchTab(tab) {
+            const dashTab = document.getElementById('tab-dashboard');
+            const invTab = document.getElementById('tab-investments');
+            const dashBtn = document.getElementById('tab-dashboard-btn');
+            const invBtn = document.getElementById('tab-investments-btn');
+
+            if (tab === 'dashboard') {
+                dashTab.classList.remove('hidden');
+                invTab.classList.add('hidden');
+                dashBtn.className = "px-4 py-2 rounded-t-xl bg-white text-indigo-900 transition flex items-center gap-2";
+                invBtn.className = "px-4 py-2 rounded-t-xl text-indigo-200 hover:text-white transition flex items-center gap-2";
+            } else {
+                dashTab.classList.add('hidden');
+                invTab.classList.remove('hidden');
+                invBtn.className = "px-4 py-2 rounded-t-xl bg-white text-indigo-900 transition flex items-center gap-2";
+                dashBtn.className = "px-4 py-2 rounded-t-xl text-indigo-200 hover:text-white transition flex items-center gap-2";
+                renderInvestmentsTab();
+            }
+        }
+
+        // Format Currency Guaraníes (es-PY)
+        function formatGuaranies(amount) {
+            const num = Number(amount) || 0;
+            return 'Gs. ' + Math.round(num).toLocaleString('es-PY');
+        }
+
+        // Save State
+        function saveToLocalStorage() {
+            localStorage.setItem('fin_transactions', JSON.stringify(transactions));
+            localStorage.setItem('fin_budgets', JSON.stringify(budgets));
+            localStorage.setItem('fin_savings_acc', JSON.stringify(savingsAccounts));
+            localStorage.setItem('fin_cdas', JSON.stringify(cdas));
+            localStorage.setItem('fin_savings_goal', savingsGoal);
+        }
+
+        // Render All Views
+        function renderAll() {
+            renderMetrics();
+            renderBudgets();
+            renderTransactions();
+            renderChart();
+            renderInvestmentsTab();
+        }
+
+        // Render Dashboard Metrics
+        function renderMetrics() {
+            let totalIncome = 0;
+            let totalExpense = 0;
+            let incomeCount = 0;
+            let expenseCount = 0;
+
+            transactions.forEach(tx => {
+                if (tx.type === 'ingreso') {
+                    totalIncome += tx.amount;
+                    incomeCount++;
+                } else {
+                    totalExpense += tx.amount;
+                    expenseCount++;
+                }
+            });
+
+            const balance = totalIncome - totalExpense;
+            const totalLiquidSavings = savingsAccounts.reduce((acc, curr) => acc + curr.balance, 0);
+            const totalCDACapital = cdas.reduce((acc, curr) => acc + curr.amount, 0);
+            const totalNetWorth = balance + totalLiquidSavings + totalCDACapital;
+
+            document.getElementById('total-balance').textContent = formatGuaranies(balance);
+            document.getElementById('total-income').textContent = formatGuaranies(totalIncome);
+            document.getElementById('total-expense').textContent = formatGuaranies(totalExpense);
+            document.getElementById('total-networth').textContent = formatGuaranies(totalNetWorth);
+
+            document.getElementById('income-count').textContent = `${incomeCount} Registro${incomeCount === 1 ? '' : 's'}`;
+            document.getElementById('expense-count').textContent = `${expenseCount} Registro${expenseCount === 1 ? '' : 's'}`;
+        }
+
+        // Render Investments & CDA Tab
+        function renderInvestmentsTab() {
+            const totalLiquidSavings = savingsAccounts.reduce((acc, curr) => acc + curr.balance, 0);
+            const totalCDACapital = cdas.reduce((acc, curr) => acc + curr.amount, 0);
+
+            // Calculate Interest Earnings
+            let totalAnnualInterest = 0;
+            let totalWeightedTEA = 0;
+
+            cdas.forEach(c => {
+                const annualReturn = c.amount * (c.tea / 100);
+                totalAnnualInterest += annualReturn;
+                totalWeightedTEA += c.tea;
+            });
+
+            const avgTEA = cdas.length > 0 ? (totalWeightedTEA / cdas.length).toFixed(1) : 0;
+            const monthlyReturn = totalAnnualInterest / 12;
+
+            document.getElementById('total-savings-liquid').textContent = formatGuaranies(totalLiquidSavings);
+            document.getElementById('total-cda-capital').textContent = formatGuaranies(totalCDACapital);
+            document.getElementById('total-cda-interest-annual').textContent = formatGuaranies(totalAnnualInterest);
+            document.getElementById('total-cda-interest-monthly').textContent = formatGuaranies(monthlyReturn);
+            document.getElementById('cda-avg-tea').textContent = `TEA Promedio: ${avgTEA}%`;
+
+            // Goal Progress
+            const totalAccumulated = totalLiquidSavings + totalCDACapital;
+            const pctGoal = Math.min(Math.round((totalAccumulated / savingsGoal) * 100), 100);
+            document.getElementById('goal-current-val').textContent = formatGuaranies(totalAccumulated);
+            document.getElementById('goal-target-val').textContent = formatGuaranies(savingsGoal);
+            document.getElementById('goal-progress-bar').style.width = pctGoal + '%';
+            document.getElementById('goal-percentage-text').textContent = `${pctGoal}% de la Meta Completado`;
+
+            // Render Tables
+            renderSavingsTable();
+            renderCDATable();
+
+            // Render Charts
+            renderInvestmentsCharts(totalLiquidSavings, totalCDACapital, totalAnnualInterest);
+        }
+
+        // Render Savings Accounts Table
+        function renderSavingsTable() {
+            const tbody = document.getElementById('savings-table-body');
+            tbody.innerHTML = '';
+            savingsAccounts.forEach(acc => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50";
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-semibold text-slate-800">${acc.name}</td>
+                    <td class="py-2.5 px-3 text-slate-500">${acc.type}</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-blue-600">${formatGuaranies(acc.balance)}</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <button onclick="deleteSavingsAccount('${acc.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render CDA Table
+        function renderCDATable() {
+            const tbody = document.getElementById('cda-table-body');
+            tbody.innerHTML = '';
+            cdas.forEach(cda => {
+                const annualEarn = cda.amount * (cda.tea / 100);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50";
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-semibold text-slate-800">${cda.bank}</td>
+                    <td class="py-2.5 px-3 font-bold text-indigo-700">${formatGuaranies(cda.amount)}</td>
+                    <td class="py-2.5 px-3"><span class="bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded">${cda.tea}%</span></td>
+                    <td class="py-2.5 px-3 text-right font-bold text-emerald-600">+${formatGuaranies(annualEarn)}</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <button onclick="deleteCDA('${cda.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // CDA Quick Simulator Calculation
+        function calculateSimulatedCDA() {
+            const amount = parseFloat(document.getElementById('sim-amount').value) || 0;
+            const tea = parseFloat(document.getElementById('sim-tea').value) || 0;
+            const months = parseFloat(document.getElementById('sim-months').value) || 12;
+
+            const annualInterest = amount * (tea / 100);
+            const totalInterest = annualInterest * (months / 12);
+            const monthlyAvg = totalInterest / months;
+
+            document.getElementById('sim-result-total').textContent = formatGuaranies(totalInterest);
+            document.getElementById('sim-result-monthly').textContent = formatGuaranies(monthlyAvg);
+        }
+
+        // Render Investment Charts
+        function renderInvestmentsCharts(liquid, cdaCapital, annualInterest) {
+            // Doughnut Chart
+            const ctx1 = document.getElementById('investmentsDoughnutChart').getContext('2d');
+            if (investmentsDoughnutChartInstance) investmentsDoughnutChartInstance.destroy();
+
+            investmentsDoughnutChartInstance = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Ahorro Disponible (Vista)', 'Capital en CDA (Plazo)'],
+                    datasets: [{
+                        data: [liquid, cdaCapital],
+                        backgroundColor: ['#3b82f6', '#4338ca']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    }
+                }
+            });
+
+            // Growth Chart (12 Months Projection)
+            const ctx2 = document.getElementById('investmentsGrowthChart').getContext('2d');
+            if (investmentsGrowthChartInstance) investmentsGrowthChartInstance.destroy();
+
+            const monthsLabels = ['Mes 0', 'Mes 3', 'Mes 6', 'Mes 9', 'Mes 12'];
+            const monthlyReturn = annualInterest / 12;
+            const baseCapital = liquid + cdaCapital;
+
+            const projectionData = [
+                baseCapital,
+                baseCapital + (monthlyReturn * 3),
+                baseCapital + (monthlyReturn * 6),
+                baseCapital + (monthlyReturn * 9),
+                baseCapital + (monthlyReturn * 12)
+            ];
+
+            investmentsGrowthChartInstance = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: monthsLabels,
+                    datasets: [{
+                        label: 'Proyección de Capital + Rendimiento CDA',
+                        data: projectionData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // Transaction Management
+        function setTransactionType(type) {
+            currentType = type;
+            const expBtn = document.getElementById('type-expense-btn');
+            const incBtn = document.getElementById('type-income-btn');
+            if (type === 'gasto') {
+                expBtn.className = "py-2 rounded-lg text-center transition bg-white text-rose-600 shadow-sm font-semibold";
+                incBtn.className = "py-2 rounded-lg text-center transition text-slate-600 hover:text-slate-900";
+            } else {
+                incBtn.className = "py-2 rounded-lg text-center transition bg-white text-emerald-600 shadow-sm font-semibold";
+                expBtn.className = "py-2 rounded-lg text-center transition text-slate-600 hover:text-slate-900";
+            }
+            updateCategoryDropdown();
+        }
+
+        function updateCategoryDropdown() {
+            const select = document.getElementById('tx-category');
+            select.innerHTML = '';
+            categories[currentType].forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                select.appendChild(opt);
+            });
+        }
+
+        function populateCategoryFilter() {
+            const filterSelect = document.getElementById('filter-category');
+            filterSelect.innerHTML = '<option value="all">Todas las categorías</option>';
+            [...categories.gasto, ...categories.ingreso].forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                filterSelect.appendChild(opt);
+            });
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const desc = document.getElementById('tx-desc').value.trim();
+            const amount = parseFloat(document.getElementById('tx-amount').value);
+            const category = document.getElementById('tx-category').value;
+            const date = document.getElementById('tx-date').value;
+
+            if (!desc || isNaN(amount) || amount <= 0) return;
+
+            if (editingId) {
+                transactions = transactions.map(tx => tx.id === editingId ? { ...tx, type: currentType, desc, amount, category, date } : tx);
+                cancelEdit();
+            } else {
+                transactions.unshift({ id: 'tx-' + Date.now(), type: currentType, desc, amount, category, date });
+                document.getElementById('transaction-form').reset();
+                document.getElementById('tx-date').valueAsDate = new Date();
+                setTransactionType('gasto');
+            }
+
+            saveToLocalStorage();
+            renderAll();
+            showToast('Transacción guardada correctamente.');
+        }
+
+        function editTransaction(id) {
+            const tx = transactions.find(t => t.id === id);
+            if (!tx) return;
+            editingId = id;
+            setTransactionType(tx.type);
+            document.getElementById('tx-desc').value = tx.desc;
+            document.getElementById('tx-amount').value = tx.amount;
+            document.getElementById('tx-category').value = tx.category;
+            document.getElementById('tx-date').value = tx.date;
+            document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-600"></i><span>Editar Transacción</span>`;
+            document.getElementById('submit-btn').textContent = 'Actualizar Transacción';
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            document.getElementById('transaction-form').reset();
+            document.getElementById('tx-date').valueAsDate = new Date();
+            setTransactionType('gasto');
+            document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-circle-plus text-indigo-600"></i><span>Nueva Transacción</span>`;
+            document.getElementById('submit-btn').textContent = 'Guardar Transacción';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+        }
+
+        function deleteTransaction(id) {
+            if (confirm('¿Eliminar transacción?')) {
+                transactions = transactions.filter(t => t.id !== id);
+                saveToLocalStorage();
+                renderAll();
+                showToast('Transacción eliminada.');
+            }
+        }
+
+        function renderBudgets() {
+            const container = document.getElementById('budgets-container');
+            container.innerHTML = '';
+
+            const spentMap = {};
+            transactions.filter(t => t.type === 'gasto').forEach(tx => {
+                spentMap[tx.category] = (spentMap[tx.category] || 0) + tx.amount;
+            });
+
+            categories.gasto.forEach(cat => {
+                const limit = budgets[cat.id] || 500000;
+                const spent = spentMap[cat.id] || 0;
+                const pct = Math.min(Math.round((spent / limit) * 100), 100);
+
+                let barColor = 'bg-indigo-600';
+                if (pct >= 100) barColor = 'bg-rose-600';
+                else if (pct >= 80) barColor = 'bg-amber-500';
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-2";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-slate-800">${cat.name}</span>
+                        <span class="text-[10px] bg-slate-200 font-bold px-1.5 py-0.5 rounded">${pct}%</span>
+                    </div>
+                    <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div class="${barColor} h-full rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-500">
+                        <span>Gastado: ${formatGuaranies(spent)}</span>
+                        <span>Tope: ${formatGuaranies(limit)}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderTransactions() {
+            const tbody = document.getElementById('transactions-table-body');
+            const emptyState = document.getElementById('empty-state');
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const filterType = document.getElementById('filter-type').value;
+            const filterCategory = document.getElementById('filter-category').value;
+
+            let filtered = transactions.filter(tx => {
+                const matchesSearch = tx.desc.toLowerCase().includes(searchTerm);
+                const matchesType = filterType === 'all' || tx.type === filterType;
+                const matchesCat = filterCategory === 'all' || tx.category === filterCategory;
+                return matchesSearch && matchesType && matchesCat;
+            });
+
+            tbody.innerHTML = '';
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            const allCats = [...categories.gasto, ...categories.ingreso];
+            filtered.forEach(tx => {
+                const catObj = allCats.find(c => c.id === tx.category) || { name: tx.category, icon: 'fa-tag' };
+                const isIncome = tx.type === 'ingreso';
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-xs text-slate-600">${tx.date}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800 text-xs">${tx.desc}</td>
+                    <td class="py-3 px-4 text-xs text-slate-600"><i class="fa-solid ${catObj.icon} text-indigo-600"></i> ${catObj.name}</td>
+                    <td class="py-3 px-4 text-xs"><span class="px-2 py-0.5 rounded-full font-bold ${isIncome ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${isIncome ? 'Ingreso' : 'Gasto'}</span></td>
+                    <td class="py-3 px-4 text-right font-bold text-xs ${isIncome ? 'text-emerald-600' : 'text-slate-900'}">${isIncome ? '+' : '-'}${formatGuaranies(tx.amount)}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="editTransaction('${tx.id}')" class="text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteTransaction('${tx.id}')" class="text-slate-400 hover:text-rose-600 ml-1"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const expenseMap = {};
+            transactions.filter(t => t.type === 'gasto').forEach(tx => {
+                expenseMap[tx.category] = (expenseMap[tx.category] || 0) + tx.amount;
+            });
+
+            const labels = [];
+            const data = [];
+            categories.gasto.forEach(cat => {
+                if (expenseMap[cat.id]) {
+                    labels.push(cat.name);
+                    data.push(expenseMap[cat.id]);
+                }
+            });
+
+            if (expenseChartInstance) expenseChartInstance.destroy();
+
+            expenseChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data.length > 0 ? data : [1],
+                        backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#14b8a6', '#f43f5e']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        // Modals Operations
+        function openBudgetModal() {
+            const modalList = document.getElementById('modal-budgets-list');
+            modalList.innerHTML = '';
+            categories.gasto.forEach(cat => {
+                const limit = budgets[cat.id] || 500000;
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200";
+                div.innerHTML = `
+                    <span class="text-xs font-semibold text-slate-700">${cat.name}</span>
+                    <input type="number" id="budget-input-${cat.id}" value="${limit}" step="50000" class="w-32 px-2 py-1 rounded-lg border border-slate-300 text-xs font-bold">
+                `;
+                modalList.appendChild(div);
+            });
+            document.getElementById('budget-modal').classList.remove('hidden');
+        }
+
+        function closeBudgetModal() { document.getElementById('budget-modal').classList.add('hidden'); }
+
+        function saveBudgetsFromModal() {
+            categories.gasto.forEach(cat => {
+                const input = document.getElementById(`budget-input-${cat.id}`);
+                if (input) budgets[cat.id] = parseFloat(input.value) || 0;
+            });
+            saveToLocalStorage();
+            renderBudgets();
+            closeBudgetModal();
+            showToast('Presupuestos actualizados.');
+        }
+
+        // Savings Account Modal Handlers
+        function openSavingsAccountModal() { document.getElementById('savings-account-modal').classList.remove('hidden'); }
+        function closeSavingsAccountModal() { document.getElementById('savings-account-modal').classList.add('hidden'); }
+
+        function handleSavingsAccountSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('acc-name').value.trim();
+            const type = document.getElementById('acc-type').value;
+            const balance = parseFloat(document.getElementById('acc-balance').value) || 0;
+
+            savingsAccounts.push({ id: 'sav-' + Date.now(), name, type, balance });
+            saveToLocalStorage();
+            renderInvestmentsTab();
+            closeSavingsAccountModal();
+            showToast('Cuenta de ahorro agregada.');
+        }
+
+        function deleteSavingsAccount(id) {
+            if (confirm('¿Eliminar esta cuenta de ahorro?')) {
+                savingsAccounts = savingsAccounts.filter(s => s.id !== id);
+                saveToLocalStorage();
+                renderInvestmentsTab();
+                showToast('Cuenta eliminada.');
+            }
+        }
+
+        // CDA Modal Handlers
+        function openCDAModal() { document.getElementById('cda-modal').classList.remove('hidden'); }
+        function closeCDAModal() { document.getElementById('cda-modal').classList.add('hidden'); }
+
+        function handleCDASubmit(e) {
+            e.preventDefault();
+            const bank = document.getElementById('cda-bank').value.trim();
+            const amount = parseFloat(document.getElementById('cda-amount').value) || 0;
+            const tea = parseFloat(document.getElementById('cda-tea').value) || 0;
+            const months = parseInt(document.getElementById('cda-months').value) || 12;
+            const payout = document.getElementById('cda-payout').value;
+
+            cdas.push({ id: 'cda-' + Date.now(), bank, amount, tea, months, payout });
+            saveToLocalStorage();
+            renderInvestmentsTab();
+            closeCDAModal();
+            showToast('CDA registrado exitosamente.');
+        }
+
+        function deleteCDA(id) {
+            if (confirm('¿Eliminar este registro de CDA?')) {
+                cdas = cdas.filter(c => c.id !== id);
+                saveToLocalStorage();
+                renderInvestmentsTab();
+                showToast('CDA eliminado.');
+            }
+        }
+
+        function editSavingsGoal() {
+            const newGoal = prompt('Ingresa tu nueva Meta de Ahorro Total (Gs.):', savingsGoal);
+            if (newGoal && !isNaN(newGoal) && Number(newGoal) > 0) {
+                savingsGoal = parseFloat(newGoal);
+                saveToLocalStorage();
+                renderInvestmentsTab();
+                showToast('Meta de ahorro actualizada.');
+            }
+        }
+
+        // Import & Export Backup JSON
+        function exportData() {
+            const dataToExport = { transactions, budgets, savingsAccounts, cdas, savingsGoal };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", `finanzas_py_completo_${new Date().toISOString().split('T')[0]}.json`);
+            dl.click();
+            dl.remove();
+            showToast('Respaldo exportado correctamente.');
+        }
+
+        function importData(event) {
+            const reader = new FileReader();
+            if (event.target.files[0]) {
+                reader.readAsText(event.target.files[0], "UTF-8");
+                reader.onload = (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (parsed.transactions) transactions = parsed.transactions;
+                        if (parsed.budgets) budgets = parsed.budgets;
+                        if (parsed.savingsAccounts) savingsAccounts = parsed.savingsAccounts;
+                        if (parsed.cdas) cdas = parsed.cdas;
+                        if (parsed.savingsGoal) savingsGoal = parsed.savingsGoal;
+
+                        saveToLocalStorage();
+                        renderAll();
+                        showToast('Datos importados con éxito.');
+                    } catch (err) {
+                        showToast('Error al importar archivo JSON.', 'error');
+                    }
+                };
+            }
+        }
+
+        function resetDataPrompt() {
+            if (confirm('¿Restablecer datos originales de prueba?')) {
+                transactions = JSON.parse(JSON.stringify(defaultTransactions));
+                budgets = JSON.parse(JSON.stringify(defaultBudgets));
+                savingsAccounts = JSON.parse(JSON.stringify(defaultSavingsAccounts));
+                cdas = JSON.parse(JSON.stringify(defaultCDAs));
+                savingsGoal = 50000000;
+                saveToLocalStorage();
+                renderAll();
+                showToast('Datos iniciales restablecidos.');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 3000);
+        }
+    </script>
+</body>
+</html>
+```
+
+### Summary of Enhancements:
+- **CDA & Investment Yield Engine**: Tracks fixed deposits with TEA %, auto-calculating annual and monthly passive interest returns in Paraguayan Guaraníes.
+- **Parallel Savings Tracker**: Separates available liquid cash from tied-up CDA capital while giving you a combined net-worth view (`Patrimonio Acumulado`).
+- **Interactive Simulator**: Allows quick calculation of hypothetical CDA earnings before investing.
